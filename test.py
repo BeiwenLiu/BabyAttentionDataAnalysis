@@ -11,7 +11,13 @@ from scipy.io import loadmat
 import matplotlib.pyplot as plt
 import numpy
 from scipy import interpolate
-
+import pandas as pd
+from openpyxl import Workbook
+import openpyxl
+import os.path
+from django.utils.encoding import smart_str
+from openpyxl.styles import colors
+from openpyxl.styles import Font, Color
 
 data = []
 
@@ -64,13 +70,41 @@ def main():
             newTimeValues.append(timeValues[i])
             newxValues.append(xValues[i])
     
-    xStart,yStart,xEnd,yEnd = calculations(averageX,threshold,newxValues,newTimeValues)
+    xStart,yStart,xEnd,yEnd,averageDistance = calculations(averageX,threshold,newxValues,newTimeValues)
     graphX(xStart,yStart,xEnd,yEnd,timeValues,xValues)
     
     total = findDuration(xStart,xEnd)
     print round(total/totalTime*100,2)
     print "distraction: " + str(round(distractedTime/totalTime*100,2)) + "%"
     
+    saveToExcel(median(xValues),averageX, xStart,xEnd,averageDistance,round(total/totalTime*100,2),round(distractedTime/totalTime*100,2),threshold)
+    
+def saveToExcel(median,mean,startTime,endTime,averageXDistance,dataDistractionPercent,calculatedDistractionPercent,threshold):
+    new_file = 'results.xlsx'
+    wb = openpyxl.Workbook()
+    wb.create_sheet(index=0, title='Results') #Creating sheets based on original excel
+    ws = wb.worksheets[0]
+    ws['A1'] = 'Start Time'
+    ws['B1'] = 'End time'
+    ws['C1'] = 'Average X Distance'
+    ws['D1'] = 'Median Center'
+    ws['E1'] = 'Mean Center'
+    ws['F1'] = 'Data Distraction Percentage'
+    ws['G1'] = 'Caulcated Distraction Percentage'
+    ws['H1'] = 'Offset Threshold'
+    ws['D2'] = str(median)
+    ws['E2'] = str(mean)
+    for x in range(0,len(startTime)):
+        ws['A{}'.format(x+2)] = str(startTime[x])
+    for x in range(0,len(endTime)):
+        ws['B{}'.format(x+2)] = str(endTime[x])
+    for x in range(0,len(averageXDistance)):
+        ws['C{}'.format(x+2)] = str(averageXDistance[x])
+    ws['F2'] = str(dataDistractionPercent)
+    ws['G2'] = str(calculatedDistractionPercent)
+    ws['H2'] = str(threshold)
+    wb.save(new_file)
+
 #This method will find the start and end points
 def calculations(averageX,threshold,xValues,timeValues):
     threshold = float(threshold)
@@ -89,14 +123,21 @@ def calculations(averageX,threshold,xValues,timeValues):
     
     startXY = []
     endXY = []
+    averageDistance = []
+
+    tempDistance = []
+    
     
     for x in range(2,len(xValues)):
-        currentY = xValues[x] # X Value
+        currentY = xValues[x] # X Distance Value
         currentX = timeValues[x]
         if ~found and (previousY < threshold + averageX and currentY > threshold + averageX):
             startX = slopeX(currentY,previousY,currentX,previousX,threshold + averageX)
             startY = averageX + threshold
             found = True
+            
+        if found:
+            tempDistance.append(currentY)
         
         if found and (previousY > threshold + averageX and currentY < threshold + averageX):
             
@@ -105,11 +146,13 @@ def calculations(averageX,threshold,xValues,timeValues):
             found = False
             startXY.append([startX,startY]) #column 0 is the time and column 1 is the "x" distance
             endXY.append([endX,endY])
+            averageDistance.append(sum(tempDistance) / len(tempDistance))
+            tempDistance = []
             
         previousY = currentY
         previousX = currentX
 
-    return [row[0] for row in startXY], [row[1] for row in startXY], [row[0] for row in endXY], [row[1] for row in endXY]
+    return [row[0] for row in startXY], [row[1] for row in startXY], [row[0] for row in endXY], [row[1] for row in endXY], averageDistance
         
 
 def calculateTotalDistractionTime(averageX,threshold,xValues,timeValues):
