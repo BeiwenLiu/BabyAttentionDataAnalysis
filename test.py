@@ -67,6 +67,10 @@ def main():
     xStart,yStart,xEnd,yEnd = calculations(averageX,threshold,newxValues,newTimeValues)
     graphX(xStart,yStart,xEnd,yEnd,timeValues,xValues)
     
+    total = findDuration(xStart,xEnd)
+    print round(total/totalTime*100,2)
+    print "distraction: " + str(round(distractedTime/totalTime*100,2)) + "%"
+    
 #This method will find the start and end points
 def calculations(averageX,threshold,xValues,timeValues):
     threshold = float(threshold)
@@ -115,6 +119,12 @@ def calculateTotalDistractionTime(averageX,threshold,xValues,timeValues):
             distractedTime = distractedTime + (timeValues[x]-timeValues[x-1])
             
     return distractedTime
+    
+def findDuration(start,end):
+    duration = 0
+    for x in range(0,len(start)):
+        duration = duration + (end[0] - start[0])
+    return duration
      
 #This method will find the associated time with the "x" offset threshold as selected value between two known points       
 def slopeX(y2,y1,x2,x1,threshold):
