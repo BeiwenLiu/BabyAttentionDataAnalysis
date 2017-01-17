@@ -71,8 +71,8 @@ def main():
             newTimeValues.append(timeValues[i])
             newxValues.append(xValues[i])
     
-    xStart,yStart,xEnd,yEnd,averageDistance = calculations(medianX,threshold,newxValues,newTimeValues)
-    xStart1,yStart1,xEnd1,yEnd1,averageDistance1 = calculations2(medianX,threshold,newxValues,newTimeValues)
+    xStart,yStart,xEnd,yEnd,averageDistance = calculations(medianX,threshold,newxValues,newTimeValues) #Finds start-end for +x
+    xStart1,yStart1,xEnd1,yEnd1,averageDistance1 = calculations2(medianX,threshold,newxValues,newTimeValues) #Finds start-end for -x
     graphX(xStart,yStart,xEnd,yEnd,xStart1,yStart1,xEnd1,yEnd1,timeValues,xValues, medianX) #plots everything
     
     #histogram(xValues) # To enable histogram, uncomment here
@@ -245,9 +245,10 @@ def graphX(startX,startY,endX,endY,startX1,startY1,endX1,endY1,time,x,middleX):
    
     plt.plot(time,x)
     plt.plot(time,middleXList, 'r') #Graphs center line according to middleX which can be average or median
-    #plt.scatter(startX,startY)
+    plt.scatter(startX,startY)
     plt.scatter(startX1,startY1)
     plt.scatter(endX,endY)
+    plt.scatter(endX1,endY1)
     #axes.set_xlim([0,1])
     #axes.set_ylim([-2,3])
     plt.show()
