@@ -3,7 +3,7 @@
 """
 Created on Thu Nov 24 21:18:06 2016
 
-@author: MacbookRetina
+@author: Beiwen Liu
 """
 import numpy as np
 import numpy.ma as ma
@@ -51,14 +51,15 @@ def main():
     timeValues[:] = [x - initialValue for x in timeValues]
     
     averageX = sum(xValues)/len(xValues)
+    medianX = median(xValues)
     
     threshold = raw_input("State your offset from average\n")
     
     totalTime = timeValues[-1] - timeValues[0]
-    distractedTime = calculateTotalDistractionTime(averageX,threshold,xValues,timeValues)
+    distractedTime = calculateTotalDistractionTime(medianX,threshold,xValues,timeValues)
     
-    print averageX
-    print median(xValues)
+    print "Average X", averageX
+    print "Median", medianX
     print totalTime
     print "distraction: " + str(round(distractedTime/totalTime*100,2)) + "%"
     
@@ -70,8 +71,10 @@ def main():
             newTimeValues.append(timeValues[i])
             newxValues.append(xValues[i])
     
-    xStart,yStart,xEnd,yEnd,averageDistance = calculations(averageX,threshold,newxValues,newTimeValues)
-    graphX(xStart,yStart,xEnd,yEnd,timeValues,xValues)
+    xStart,yStart,xEnd,yEnd,averageDistance = calculations(medianX,threshold,newxValues,newTimeValues)
+    graphX(xStart,yStart,xEnd,yEnd,timeValues,xValues, medianX) #plots everything
+    
+    #histogram(xValues) # To enable histogram, uncomment here
     
     total = findDuration(xStart,xEnd)
     print round(total/totalTime*100,2)
@@ -171,13 +174,13 @@ def findDuration(start,end):
      
 #This method will find the associated time with the "x" offset threshold as selected value between two known points       
 def slopeX(y2,y1,x2,x1,threshold):
-    print y2,y1,x2,x1,threshold
+    #print y2,y1,x2,x1,threshold
     slope = (y2 - y1)/(x2 - x1)
     b = y1-slope*x1
     xVal = (threshold - b) / slope
     
-    print "original: " + str(x2)
-    print "new : " + str(xVal)
+    #print "original: " + str(x2)
+    #print "new : " + str(xVal)
     return xVal
     
 def graphXY(x,y):
@@ -187,10 +190,13 @@ def graphXY(x,y):
     axes.set_ylim([-2,3])
     plt.show()
 
-def graphX(startX,startY,endX,endY,time,x):
-    axes = plt.gca()
+def graphX(startX,startY,endX,endY,time,x,middleX):
+    middleXList = []
+    for num in range(0,len(time)):
+        middleXList.append(middleX)
    
     plt.plot(time,x)
+    plt.plot(time,middleXList, 'r') #Graphs center line according to middleX which can be average or median
     plt.scatter(startX,startY)
     plt.scatter(endX,endY)
     #axes.set_xlim([0,1])
@@ -218,6 +224,29 @@ def practice():
     list1.append([1,2])
     list1.append([2,3])
     print list1[0][0]
+
+#Histogram for distribution of distances 
+def histogram(sa):
+    
+    # Get histogram of random data
+    bins = []
+    x = .1
+    while x < 1:
+        bins.append(x)
+        x += .01
+        
+    y, x = np.histogram(sa, bins=bins)
+    
+    # Correct bin placement
+    x = x[1:]
+    
+    # Turn into pandas Series
+    hist = pd.Series(y, x)
+    
+    # Plot
+    ax = hist.plot(kind='bar', width=1, alpha=0.5, align='center')
+    ax.set_title('Uniform Bin Distribution of Distance Look Away')
+    ax.set_xlabel('Distance Look Away')
 
 
     
