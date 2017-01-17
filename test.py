@@ -72,7 +72,8 @@ def main():
             newxValues.append(xValues[i])
     
     xStart,yStart,xEnd,yEnd,averageDistance = calculations(medianX,threshold,newxValues,newTimeValues)
-    graphX(xStart,yStart,xEnd,yEnd,timeValues,xValues, medianX) #plots everything
+    xStart1,yStart1,xEnd1,yEnd1,averageDistance1 = calculations2(medianX,threshold,newxValues,newTimeValues)
+    graphX(xStart,yStart,xEnd,yEnd,xStart1,yStart1,xEnd1,yEnd1,timeValues,xValues, medianX) #plots everything
     
     #histogram(xValues) # To enable histogram, uncomment here
     
@@ -157,6 +158,53 @@ def calculations(averageX,threshold,xValues,timeValues):
 
     return [row[0] for row in startXY], [row[1] for row in startXY], [row[0] for row in endXY], [row[1] for row in endXY], averageDistance
         
+def calculations2(averageX,threshold,xValues,timeValues):
+    threshold = float(threshold)
+    
+    found = False
+    
+    currentY = 0
+    previousY = xValues[1]
+    currentX = 0
+    previousX = timeValues[1]
+    
+    startY = 0 
+    startX = 0
+    endY = 0
+    endX = 0
+    
+    startXY = []
+    endXY = []
+    averageDistance = []
+
+    tempDistance = []
+    
+    
+    for x in range(2,len(xValues)):
+        currentY = xValues[x] # X Distance Value
+        currentX = timeValues[x]
+        if ~found and (previousY > averageX - threshold and currentY < averageX - threshold):
+            startX = slopeX(currentY,previousY,currentX,previousX,averageX - threshold)
+            startY = averageX - threshold
+            found = True
+            
+        if found:
+            tempDistance.append(currentY)
+        
+        if found and (previousY < averageX - threshold and currentY > averageX - threshold):
+            
+            endX = slopeX(currentY,previousY,currentX,previousX,averageX - threshold)
+            endY = averageX - threshold
+            found = False
+            startXY.append([startX,startY]) #column 0 is the time and column 1 is the "x" distance
+            endXY.append([endX,endY])
+            averageDistance.append(sum(tempDistance) / len(tempDistance))
+            tempDistance = []
+            
+        previousY = currentY
+        previousX = currentX
+
+    return [row[0] for row in startXY], [row[1] for row in startXY], [row[0] for row in endXY], [row[1] for row in endXY], averageDistance
 
 def calculateTotalDistractionTime(averageX,threshold,xValues,timeValues):
     distractedTime = 0
@@ -190,14 +238,15 @@ def graphXY(x,y):
     axes.set_ylim([-2,3])
     plt.show()
 
-def graphX(startX,startY,endX,endY,time,x,middleX):
+def graphX(startX,startY,endX,endY,startX1,startY1,endX1,endY1,time,x,middleX):
     middleXList = []
     for num in range(0,len(time)):
         middleXList.append(middleX)
    
     plt.plot(time,x)
     plt.plot(time,middleXList, 'r') #Graphs center line according to middleX which can be average or median
-    plt.scatter(startX,startY)
+    #plt.scatter(startX,startY)
+    plt.scatter(startX1,startY1)
     plt.scatter(endX,endY)
     #axes.set_xlim([0,1])
     #axes.set_ylim([-2,3])
