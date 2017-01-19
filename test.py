@@ -5,6 +5,7 @@ Created on Thu Nov 24 21:18:06 2016
 
 @author: Beiwen Liu
 """
+import pandas as pd
 import numpy as np
 import numpy.ma as ma
 from scipy.io import loadmat
@@ -79,13 +80,17 @@ def main():
             newTimeValues.append(timeValues[i])
             newxValues.append(xValues[i])
     
+    movingAverage(timeValues,xValues)
     xStart,yStart,xEnd,yEnd,averageDistance,durations = calculations(medianX,threshold,newxValues,newTimeValues,durationthreshold) #Finds start-end for +x
     xStart1,yStart1,xEnd1,yEnd1,averageDistance1,durations2 = calculations2(medianX,threshold,newxValues,newTimeValues,durationthreshold) #Finds start-end for -x
-    graphX(xStart,yStart,xEnd,yEnd,xStart1,yStart1,xEnd1,yEnd1,timeValues,xValues, medianX) #plots everything
+    
+    #graphX(xStart,yStart,xEnd,yEnd,xStart1,yStart1,xEnd1,yEnd1,timeValues,xValues, medianX) #plots everything
     
     durations.extend(durations2) #combine both durations from top and bottom
     #histogram(xValues) # To enable histogram for distance look away, uncomment here
     #histogramDurations(durations) # To enable histogram for duration of look aways, uncomment here
+    
+
     total = findDuration(xStart,xEnd)
     print round(total/totalTime*100,2)
     print "distraction: " + str(round(distractedTime/totalTime*100,2)) + "%"
@@ -347,7 +352,12 @@ def histogramDurations(sa):
     ax.set_title('Uniform Bin Distribution of Look Durations')
     ax.set_xlabel('Duration of Look Away')
 
-
+def movingAverage(timeValues,xValues):
+    df = pd.DataFrame(index=timeValues,columns=['Distance Away'])
+    df['Distance Away'] = xValues
+    graph = df.rolling(window=1000,center=False).mean()
+    graph.plot(style='r')
+    
     
 #ase()
 main()
