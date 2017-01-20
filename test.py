@@ -23,7 +23,7 @@ from openpyxl.styles import Font, Color
 data = []
 
 def main():
-    x = loadmat('10912.mat')
+    x = loadmat('mat/10912.mat')
     xValues = []
     yValues = []
     timeValues = []
@@ -80,11 +80,11 @@ def main():
             newTimeValues.append(timeValues[i])
             newxValues.append(xValues[i])
     
-    movingAverage(timeValues,xValues)
+    #movingAverage(timeValues,xValues) #Moving average graph
     xStart,yStart,xEnd,yEnd,averageDistance,durations = calculations(medianX,threshold,newxValues,newTimeValues,durationthreshold) #Finds start-end for +x
     xStart1,yStart1,xEnd1,yEnd1,averageDistance1,durations2 = calculations2(medianX,threshold,newxValues,newTimeValues,durationthreshold) #Finds start-end for -x
     
-    #graphX(xStart,yStart,xEnd,yEnd,xStart1,yStart1,xEnd1,yEnd1,timeValues,xValues, medianX) #plots everything
+    graphX(xStart,yStart,xEnd,yEnd,xStart1,yStart1,xEnd1,yEnd1,timeValues,xValues, medianX) #plots everything
     
     durations.extend(durations2) #combine both durations from top and bottom
     #histogram(xValues) # To enable histogram for distance look away, uncomment here
@@ -267,7 +267,14 @@ def graphX(startX,startY,endX,endY,startX1,startY1,endX1,endY1,time,x,middleX):
     middleXList = []
     for num in range(0,len(time)):
         middleXList.append(middleX)
-   
+        
+    
+    df = pd.DataFrame(index=time,columns=['Distance Away'])
+    df['Distance Away'] = x
+    graph = df.rolling(window=1000,center=False).mean()
+    graph.plot(style='bs-')
+    
+    print df
     plt.plot(time,x)
     plt.plot(time,middleXList, 'r') #Graphs center line according to middleX which can be average or median
     plt.scatter(startX,startY)
