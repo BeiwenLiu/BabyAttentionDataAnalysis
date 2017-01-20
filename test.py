@@ -30,6 +30,7 @@ c5 = []
 c6 = []
 c7 = []
 c8 = []
+c9 = []
 
 def matCalc():
     
@@ -55,10 +56,10 @@ def matCalc():
 def createCSV():
     df = pd.DataFrame()
     df['Participants'] = c1
+    df['Total Time'] = c9
     df['Median'] = c2
     df['Mean'] = c3
-    df['Data Distraction'] = c4
-    df['Calculated Distration'] = c5
+    df['Calculated Distraction Percent'] = c5
     df['Look Threshold'] = c6
     df['Duration Threshold'] = c7
     df['Occurrences'] = c8
@@ -134,9 +135,9 @@ def main(directory,filename, threshold=".2",durationthreshold=0):
     print "distraction: " + str(round(distractedTime/totalTime*100,2)) + "%"
     totalOccurrences = counter1+counter2
     #saveToExcel(median(xValues),averageX, xStart,xEnd,averageDistance,round(total/totalTime*100,2),round(distractedTime/totalTime*100,2),threshold)
-    addToLists(filename,median(xValues),averageX,round(total/totalTime*100,2),round(distractedTime/totalTime*100,2),threshold,durationthreshold,totalOccurrences)
+    addToLists(filename,totalTime,median(xValues),averageX,round(total/totalTime*100,2),str(round(distractedTime/totalTime*100,2)) + "%",threshold,durationthreshold,totalOccurrences)
     
-def addToLists(filename,median,mean,dataDistractionPercent,calculatedDistractionPercent,lookthreshold,durationthreshold,occurrences):
+def addToLists(filename,totalTime,median,mean,dataDistractionPercent,calculatedDistractionPercent,lookthreshold,durationthreshold,occurrences):
     c1.append(filename)
     c2.append(median)
     c3.append(mean)
@@ -145,6 +146,7 @@ def addToLists(filename,median,mean,dataDistractionPercent,calculatedDistraction
     c6.append(lookthreshold)
     c7.append(durationthreshold)
     c8.append(occurrences)
+    c9.append(totalTime)
 
 def saveToExcel(median,mean,startTime,endTime,averageXDistance,dataDistractionPercent,calculatedDistractionPercent,threshold):
     new_file = 'results.xlsx'
