@@ -22,15 +22,58 @@ from openpyxl.styles import Font, Color
 
 data = []
 
-def main():
-    x = loadmat('mat/10912.mat')
+c1 = []
+c2 = []
+c3 = []
+c4 = []
+c5 = []
+c6 = []
+c7 = []
+c8 = []
+
+def matCalc():
+    
+    visitedNumber = -1
+    previousNumber = -1
+    directory = "mat/"
+    
+    threshold = raw_input("State your offset from average\n")
+    durationthreshold = raw_input("State your duration threshold\n")
+    if durationthreshold == "":
+        durationthreshold = 0
+    else:
+        durationthreshold = float(durationthreshold)
+        
+    for filename in os.listdir(directory):
+        previousNumber = visitedNumber
+        visitedNumber = filename[-6]
+        if filename.endswith(".mat") and (visitedNumber != previousNumber) and (visitedNumber == "2" or visitedNumber == "3" or visitedNumber == "4"):
+            main(directory,filename,threshold,durationthreshold)
+            
+    createCSV()
+    
+def createCSV():
+    df = pd.DataFrame()
+    df['Participants'] = c1
+    df['Median'] = c2
+    df['Mean'] = c3
+    df['Data Distraction'] = c4
+    df['Calculated Distration'] = c5
+    df['Look Threshold'] = c6
+    df['Duration Threshold'] = c7
+    df['Occurrences'] = c8
+    df.to_csv("allParticipants.csv")
+    
+def main(directory,filename, threshold=".2",durationthreshold=0):
+    mainFile = directory+filename
+    
+    x = loadmat(mainFile)
     xValues = []
     yValues = []
     timeValues = []
 
     #print x['EyeData'][4][0]
-
-    for y in range(0,40611):
+    for y in range(0,len(x['EyeData'])):
         xValues.append(x['EyeData'][y][4])
         yValues.append(x['EyeData'][y][5])
         timeValues.append(x['EyeData'][y][0])
@@ -54,12 +97,7 @@ def main():
     averageX = sum(xValues)/len(xValues)
     medianX = median(xValues)
     
-    threshold = raw_input("State your offset from average\n")
-    durationthreshold = raw_input("State your duration threshold\n")
-    if durationthreshold == "":
-        durationthreshold = 0
-    else:
-        durationthreshold = float(durationthreshold)
+    
         
     #.066 conservative
     #.2 liberal
@@ -81,22 +119,33 @@ def main():
             newxValues.append(xValues[i])
     
     #movingAverage(timeValues,xValues) #Moving average graph
-    xStart,yStart,xEnd,yEnd,averageDistance,durations = calculations(medianX,threshold,newxValues,newTimeValues,durationthreshold) #Finds start-end for +x
-    xStart1,yStart1,xEnd1,yEnd1,averageDistance1,durations2 = calculations2(medianX,threshold,newxValues,newTimeValues,durationthreshold) #Finds start-end for -x
+    xStart,yStart,xEnd,yEnd,averageDistance,durations,counter1 = calculations(medianX,threshold,newxValues,newTimeValues,durationthreshold) #Finds start-end for +x
+    xStart1,yStart1,xEnd1,yEnd1,averageDistance1,durations2,counter2 = calculations2(medianX,threshold,newxValues,newTimeValues,durationthreshold) #Finds start-end for -x
     
-    graphX(xStart,yStart,xEnd,yEnd,xStart1,yStart1,xEnd1,yEnd1,timeValues,xValues, medianX) #plots everything
+    #graphX(xStart,yStart,xEnd,yEnd,xStart1,yStart1,xEnd1,yEnd1,timeValues,xValues, medianX) #plots everything
     
     durations.extend(durations2) #combine both durations from top and bottom
     #histogram(xValues) # To enable histogram for distance look away, uncomment here
     #histogramDurations(durations) # To enable histogram for duration of look aways, uncomment here
     
 
-    total = findDuration(xStart,xEnd)
+    total = findDuration(xStart,xEnd) #the total duration of look aways
     print round(total/totalTime*100,2)
     print "distraction: " + str(round(distractedTime/totalTime*100,2)) + "%"
+    totalOccurrences = counter1+counter2
+    #saveToExcel(median(xValues),averageX, xStart,xEnd,averageDistance,round(total/totalTime*100,2),round(distractedTime/totalTime*100,2),threshold)
+    addToLists(filename,median(xValues),averageX,round(total/totalTime*100,2),round(distractedTime/totalTime*100,2),threshold,durationthreshold,totalOccurrences)
     
-    saveToExcel(median(xValues),averageX, xStart,xEnd,averageDistance,round(total/totalTime*100,2),round(distractedTime/totalTime*100,2),threshold)
-    
+def addToLists(filename,median,mean,dataDistractionPercent,calculatedDistractionPercent,lookthreshold,durationthreshold,occurrences):
+    c1.append(filename)
+    c2.append(median)
+    c3.append(mean)
+    c4.append(dataDistractionPercent)
+    c5.append(calculatedDistractionPercent)
+    c6.append(lookthreshold)
+    c7.append(durationthreshold)
+    c8.append(occurrences)
+
 def saveToExcel(median,mean,startTime,endTime,averageXDistance,dataDistractionPercent,calculatedDistractionPercent,threshold):
     new_file = 'results.xlsx'
     wb = openpyxl.Workbook()
@@ -107,8 +156,8 @@ def saveToExcel(median,mean,startTime,endTime,averageXDistance,dataDistractionPe
     ws['C1'] = 'Average X Distance'
     ws['D1'] = 'Median Center'
     ws['E1'] = 'Mean Center'
-    ws['F1'] = 'Data Distraction Percentage'
-    ws['G1'] = 'Caulcated Distraction Percentage'
+    ws['F1'] = 'Data Distraction Percentage' #Based on found look aways
+    ws['G1'] = 'Caulcated Distraction Percentage' #Based on raw data
     ws['H1'] = 'Offset Threshold'
     ws['D2'] = str(median)
     ws['E2'] = str(mean)
@@ -176,9 +225,8 @@ def calculations(averageX,threshold,xValues,timeValues,durationthreshold):
             
         previousY = currentY
         previousX = currentX
-    print "occurrences", counter
 
-    return [row[0] for row in startXY], [row[1] for row in startXY], [row[0] for row in endXY], [row[1] for row in endXY], averageDistance, durations
+    return [row[0] for row in startXY], [row[1] for row in startXY], [row[0] for row in endXY], [row[1] for row in endXY], averageDistance, durations,counter
         
 def calculations2(averageX,threshold,xValues,timeValues,durationthreshold):
     threshold = float(threshold)
@@ -202,6 +250,7 @@ def calculations2(averageX,threshold,xValues,timeValues,durationthreshold):
     tempDistance = []
     
     durations = []
+    counter = 0
     
     for x in range(2,len(xValues)):
         currentY = xValues[x] # X Distance Value
@@ -224,15 +273,17 @@ def calculations2(averageX,threshold,xValues,timeValues,durationthreshold):
                 endXY.append([endX,endY])
                 durations.append(endX-startX)
                 averageDistance.append(sum(tempDistance) / len(tempDistance))
+                counter = counter + 1
             tempDistance = []
             
         previousY = currentY
         previousX = currentX
 
-    return [row[0] for row in startXY], [row[1] for row in startXY], [row[0] for row in endXY], [row[1] for row in endXY], averageDistance, durations
+    return [row[0] for row in startXY], [row[1] for row in startXY], [row[0] for row in endXY], [row[1] for row in endXY], averageDistance, durations,counter
 
 def calculateTotalDistractionTime(averageX,threshold,xValues,timeValues):
     distractedTime = 0
+    print threshold
     for x in range(1,len(xValues)):
         if (xValues[x] > averageX + float(threshold)) or (xValues[x] < averageX - float(threshold)):
             distractedTime = distractedTime + (timeValues[x]-timeValues[x-1])
@@ -268,13 +319,12 @@ def graphX(startX,startY,endX,endY,startX1,startY1,endX1,endY1,time,x,middleX):
     for num in range(0,len(time)):
         middleXList.append(middleX)
         
-    
+    #following df and graph will plot moving average
     df = pd.DataFrame(index=time,columns=['Distance Away'])
     df['Distance Away'] = x
     graph = df.rolling(window=1000,center=False).mean()
     graph.plot(style='bs-')
     
-    print df
     plt.plot(time,x)
     plt.plot(time,middleXList, 'r') #Graphs center line according to middleX which can be average or median
     plt.scatter(startX,startY)
@@ -367,6 +417,7 @@ def movingAverage(timeValues,xValues):
     
     
 #ase()
-main()
+#main()
 #data_listener()
 #practice()
+matCalc()
