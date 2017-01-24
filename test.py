@@ -37,35 +37,42 @@ def matCalc():
     visitedNumber = -1
     previousNumber = -1
     directory = "mat/"
-    
-    threshold = raw_input("State your offset from average\n")
-    durationthreshold = raw_input("State your duration threshold\n")
+    whichOne = raw_input("Would you like to analyze just one mat file (1) or all mat files? (2)?\n")
+    threshold = raw_input("State your offset from average (usually .2)\n")
+    durationthreshold = raw_input("State your duration threshold (0 for now)\n")
     if durationthreshold == "":
         durationthreshold = 0
     else:
         durationthreshold = float(durationthreshold)
         
-    for filename in os.listdir(directory):
-        previousNumber = visitedNumber
-        visitedNumber = filename[-6]
-        if filename.endswith(".mat") and (visitedNumber != previousNumber) and (visitedNumber == "2" or visitedNumber == "3" or visitedNumber == "4"):
-            main(directory,filename,threshold,durationthreshold)
-            
-    createCSV()
+    if (whichOne) == "2":
+        for filename in os.listdir(directory):
+            previousNumber = visitedNumber
+            visitedNumber = filename[-6]
+            if filename.endswith(".mat") and (visitedNumber != previousNumber) and (visitedNumber == "2" or visitedNumber == "3" or visitedNumber == "4"):
+                main(directory,filename,threshold,durationthreshold,whichOne)
+                
+        createCSV()
+    elif (whichOne) == "1":
+        tempFile = raw_input("Please type your desired mat file name\n")
+        main(directory,tempFile,threshold,durationthreshold,whichOne)
     
 def createCSV():
     df = pd.DataFrame()
     df['Participants'] = c1
     df['Total Time'] = c9
-    df['Median'] = c2
-    df['Mean'] = c3
-    df['Calculated Distraction Percent'] = c5
-    df['Look Threshold'] = c6
-    df['Duration Threshold'] = c7
-    df['Occurrences'] = c8
+    df['Median'] = c2 #Median Distance
+    df['Mean'] = c3 #Mean Distance
+    df['Calculated Distraction Percent'] = c5 #Of all start-stop, how much is baby distracted?
+    df['Look Threshold'] = c6 #The threshold that determines a look
+    df['Duration Threshold'] = c7 #The threhold that determines a look
+    df['Occurrences'] = c8 #Number of start-stop occurrences of look aways
     df.to_csv("allParticipants.csv")
     
-def main(directory,filename, threshold=".2",durationthreshold=0):
+def main(directory,filename, threshold,durationthreshold,signal):
+    if (signal == "1"):
+        selectGraph = raw_input("Please select an option:\n(1) Time Series Only\n(2) Graph and Time Series\n(3) Histogram of Distances\n(4) Histogram of Look Durations\n")
+    
     mainFile = directory+filename
     
     x = loadmat(mainFile)
@@ -118,25 +125,34 @@ def main(directory,filename, threshold=".2",durationthreshold=0):
         if timeValues[i] not in newTimeValues:
             newTimeValues.append(timeValues[i])
             newxValues.append(xValues[i])
-    
-    #movingAverage(timeValues,xValues) #Moving average graph
+            
+    if (selectGraph == "1"):
+        movingAverage(timeValues,xValues) #Moving average graph
+        
     xStart,yStart,xEnd,yEnd,averageDistance,durations,counter1 = calculations(medianX,threshold,newxValues,newTimeValues,durationthreshold) #Finds start-end for +x
     xStart1,yStart1,xEnd1,yEnd1,averageDistance1,durations2,counter2 = calculations2(medianX,threshold,newxValues,newTimeValues,durationthreshold) #Finds start-end for -x
-    
-    #graphX(xStart,yStart,xEnd,yEnd,xStart1,yStart1,xEnd1,yEnd1,timeValues,xValues, medianX) #plots everything
+    if (selectGraph == "2"):
+        graphX(xStart,yStart,xEnd,yEnd,xStart1,yStart1,xEnd1,yEnd1,timeValues,xValues, medianX) #plots everything
     
     durations.extend(durations2) #combine both durations from top and bottom
-    #histogram(xValues) # To enable histogram for distance look away, uncomment here
-    #histogramDurations(durations) # To enable histogram for duration of look aways, uncomment here
+    if (selectGraph == "3"):
+        histogram(xValues) # To enable histogram for distance look away, uncomment here
+    if (selectGraph == "4"):
+        histogramDurations(durations) # To enable histogram for duration of look aways, uncomment here
     
 
     total = findDuration(xStart,xEnd) #the total duration of look aways
     print round(total/totalTime*100,2)
     print "distraction: " + str(round(distractedTime/totalTime*100,2)) + "%"
     totalOccurrences = counter1+counter2
-    #saveToExcel(median(xValues),averageX, xStart,xEnd,averageDistance,round(total/totalTime*100,2),round(distractedTime/totalTime*100,2),threshold)
-    addToLists(filename,totalTime,median(xValues),averageX,round(total/totalTime*100,2),str(round(distractedTime/totalTime*100,2)) + "%",threshold,durationthreshold,totalOccurrences)
     
+    
+    #The following code will generate statistics
+    #saveToExcel(median(xValues),averageX, xStart,xEnd,averageDistance,round(total/totalTime*100,2),round(distractedTime/totalTime*100,2),threshold)
+    if (signal == "2"):
+        addToLists(filename,totalTime,median(xValues),averageX,round(total/totalTime*100,2),str(round(distractedTime/totalTime*100,2)) + "%",threshold,durationthreshold,totalOccurrences)
+    
+#Export to CSV of all participants    
 def addToLists(filename,totalTime,median,mean,dataDistractionPercent,calculatedDistractionPercent,lookthreshold,durationthreshold,occurrences):
     c1.append(filename)
     c2.append(median)
