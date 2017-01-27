@@ -86,9 +86,13 @@ def main(directory,filename, threshold,durationthreshold,signal):
         yValues.append(x['EyeData'][y][5])
         timeValues.append(x['EyeData'][y][0])
         
+    originalTimeValues = np.ma.compressed(timeValues).tolist()[1:]
+    tempInit = originalTimeValues[0]
+    originalTimeValues[:] = [z - tempInit for z in originalTimeValues]
     #graphXY(xValues,yValues)
        
-    #Drop all -1 values within X Values    
+    #Drop all -1 values within X Values 
+    
     pre = np.array(xValues)
     preT = np.array(timeValues)
     sa = np.ma.masked_where(pre == -1, pre)
@@ -96,9 +100,14 @@ def main(directory,filename, threshold,durationthreshold,signal):
     nXValues = np.ma.masked_array(xValues, sa.mask)
     nTimeValues = np.ma.masked_array(timeValues, sa.mask)
     
+    print nTimeValues,"nTime"
+    
     xValues = np.ma.compressed(nXValues).tolist()[1:]
     timeValues = np.ma.compressed(nTimeValues).tolist()[1:]
+    
+    
     initialValue = timeValues[0]
+    print initialValue, "s"
 
     timeValues[:] = [x - initialValue for x in timeValues]
     
@@ -129,7 +138,7 @@ def main(directory,filename, threshold,durationthreshold,signal):
     if (selectGraph == "1"):
         movingAverage(timeValues,xValues) #Moving average graph
         
-    xStart,yStart,xEnd,yEnd,averageDistance,durations,counter1 = calculations(medianX,threshold,newxValues,newTimeValues,durationthreshold) #Finds start-end for +x
+    xStart,yStart,xEnd,yEnd,averageDistance,durations,counter1 = calculations(medianX,threshold,newxValues,newTimeValues,durationthreshold,originalTimeValues) #Finds start-end for +x
     xStart1,yStart1,xEnd1,yEnd1,averageDistance1,durations2,counter2 = calculations2(medianX,threshold,newxValues,newTimeValues,durationthreshold) #Finds start-end for -x
     if (selectGraph == "2"):
         graphX(xStart,yStart,xEnd,yEnd,xStart1,yStart1,xEnd1,yEnd1,timeValues,xValues, medianX) #plots everything
@@ -191,7 +200,7 @@ def saveToExcel(median,mean,startTime,endTime,averageXDistance,dataDistractionPe
     wb.save(new_file)
 
 #This method will find the start and end points
-def calculations(averageX,threshold,xValues,timeValues,durationthreshold):
+def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeValues1):
     threshold = float(threshold)
     
     found = False
@@ -215,6 +224,8 @@ def calculations(averageX,threshold,xValues,timeValues,durationthreshold):
     counter = 0
     durations = []
     
+    npTime1 = np.array(timeValues)
+    npTime2 = np.array(timeValues1)
     
     for x in range(2,len(xValues)):
         currentY = xValues[x] # X Distance Value
@@ -232,7 +243,21 @@ def calculations(averageX,threshold,xValues,timeValues,durationthreshold):
             endX = slopeX(currentY,previousY,currentX,previousX,threshold + averageX)
             endY = averageX + threshold
             found = False
-            if endX-startX > durationthreshold:
+            
+            constraint = (npTime1 > startX) * (npTime1 < endX)
+            constraint2 = (npTime2 > startX) * (npTime2 < endX)
+            resultnpTime1 = np.where(constraint)
+            resultnpTime2 = np.where(constraint2)
+            
+            print npTime1[resultnpTime1]
+            print '--------'
+            print npTime2[resultnpTime2]
+            
+            goThrough = False
+            if npTime1[resultnpTime1].size == npTime2[resultnpTime2].size:
+                goThrough = True
+            
+            if endX-startX > durationthreshold and goThrough:
                 startXY.append([startX,startY]) #column 0 is the time and column 1 is the "x" distance
                 endXY.append([endX,endY])
                 durations.append(endX-startX)
@@ -333,22 +358,28 @@ def graphXY(x,y):
     plt.show()
 
 def graphX(startX,startY,endX,endY,startX1,startY1,endX1,endY1,time,x,middleX):
+    whichOne = raw_input("(1) Add Time Series\n(2) Add Looks\n(3) Add both\n(4) None\n")
+    
     middleXList = []
     for num in range(0,len(time)):
         middleXList.append(middleX)
         
-    #following df and graph will plot moving average
-    df = pd.DataFrame(index=time,columns=['Distance Away'])
-    df['Distance Away'] = x
-    graph = df.rolling(window=1000,center=False).mean()
-    graph.plot(style='bs-')
+    
+    if (whichOne == "1" or whichOne == "3"):  
+        #following df and graph will plot moving average
+        df = pd.DataFrame(index=time,columns=['Distance Away'])
+        df['Distance Away'] = x
+        graph = df.rolling(window=1000,center=False).mean()
+        graph.plot(style='bs-')
     
     plt.plot(time,x)
     plt.plot(time,middleXList, 'r') #Graphs center line according to middleX which can be average or median
-    plt.scatter(startX,startY)
-    plt.scatter(startX1,startY1)
-    plt.scatter(endX,endY)
-    plt.scatter(endX1,endY1)
+    
+    if (whichOne == "2" or whichOne == "3"):
+        plt.scatter(startX,startY)
+        plt.scatter(startX1,startY1)
+        plt.scatter(endX,endY)
+        plt.scatter(endX1,endY1)
     #axes.set_xlim([0,1])
     #axes.set_ylim([-2,3])
     plt.show()
