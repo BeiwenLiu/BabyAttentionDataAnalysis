@@ -143,7 +143,9 @@ def main(directory,filename, threshold,durationthreshold,signal):
             newxValues.append(xValues[i])
             
     if (selectGraph == "1"):
-        movingAverage(timeValues,xValues) #Moving average graph
+        windowSize = raw_input("Please Indicate the Window Size\n\n")
+        findMovingAverage(int(windowSize),xValues,timeValues)
+        #movingAverage(timeValues,xValues) #Moving average graph
         
     xStart,yStart,xEnd,yEnd,averageDistance,durations,counter1 = calculations(medianX,threshold,newxValues,newTimeValues,durationthreshold,originalTimeValues) #Finds start-end for +x
     xStart1,yStart1,xEnd1,yEnd1,averageDistance1,durations2,counter2 = calculations2(medianX,threshold,newxValues,newTimeValues,durationthreshold) #Finds start-end for -x
@@ -373,10 +375,13 @@ def graphX(startX,startY,endX,endY,startX1,startY1,endX1,endY1,time,x,middleX):
     
     if (whichOne == "1" or whichOne == "3"):  
         #following df and graph will plot moving average
+        '''
         df = pd.DataFrame(index=time,columns=['Distance Away'])
         df['Distance Away'] = x
         graph = df.rolling(window=1000,center=False).mean()
-        graph.plot(style='bs-')
+        graph.plot(style='bs-')'''
+        windowSize = raw_input("Please Indicate the Window Size\n\n")
+        findMovingAverage(int(windowSize),x,time,middleX)
         
     print len(time)
     print len(x)
@@ -504,7 +509,16 @@ def nan_helper(y):
 
     return np.isnan(y), lambda z: z.nonzero()[0]
     
-
+def findMovingAverage(windowSize,xValues,timeValues,median):
+    newXVals = []
+    xValues = [abs(median - k) + median for k in xValues]
+    for x in range(0,len(xValues) - windowSize):
+        newXVals.append(sum(xValues[x:x+windowSize])/windowSize)
+    df = pd.DataFrame(index=timeValues[:-windowSize],columns=['Distance Away'])
+    df['Distance Away'] = newXVals
+    df.plot(style='r')
+    
+        
 #ase()
 #main()
 #data_listener()
