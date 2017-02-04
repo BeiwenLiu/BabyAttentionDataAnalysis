@@ -8,6 +8,7 @@ Created on Thu Nov 24 21:18:06 2016
 import pandas as pd
 import numpy as np
 import numpy.ma as ma
+from scipy.interpolate import interp1d
 from scipy.io import loadmat
 import matplotlib.pyplot as plt
 import numpy
@@ -91,25 +92,31 @@ def main(directory,filename, threshold,durationthreshold,signal):
     originalTimeValues[:] = [z - tempInit for z in originalTimeValues]
     #graphXY(xValues,yValues)
        
+    
+    interpolateOrNo = raw_input("1) Drop -1\n2) Interpolate\n")
     #Drop all -1 values within X Values 
-    
-    pre = np.array(xValues)
-    preT = np.array(timeValues)
-    sa = np.ma.masked_where(pre == -1, pre)
-    
-    nXValues = np.ma.masked_array(xValues, sa.mask)
-    nTimeValues = np.ma.masked_array(timeValues, sa.mask)
-    
-    print nTimeValues,"nTime"
-    
-    xValues = np.ma.compressed(nXValues).tolist()[1:]
-    timeValues = np.ma.compressed(nTimeValues).tolist()[1:]
-    
+    if interpolateOrNo == "1":
+        
+        pre = np.array(xValues)
+        sa = np.ma.masked_where(pre == -1, pre)
+        
+        nXValues = np.ma.masked_array(xValues, sa.mask)
+        nTimeValues = np.ma.masked_array(timeValues, sa.mask)
+        
+        print nTimeValues,"nTime"
+        
+        xValues = np.ma.compressed(nXValues).tolist()[1:]
+        timeValues = np.ma.compressed(nTimeValues).tolist()[1:]
+    elif interpolateOrNo == "2":
+        pre = inter(xValues)
+        
+        xValues = np.ma.compressed(pre).tolist()[1:]
+        timeValues = np.ma.compressed(timeValues).tolist()[1:]
     
     initialValue = timeValues[0]
     print initialValue, "s"
 
-    timeValues[:] = [x - initialValue for x in timeValues]
+    timeValues[:] = [x1 - initialValue for x1 in timeValues]
     
     averageX = sum(xValues)/len(xValues)
     medianX = median(xValues)
@@ -249,15 +256,14 @@ def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeVal
             resultnpTime1 = np.where(constraint)
             resultnpTime2 = np.where(constraint2)
             
-            print npTime1[resultnpTime1]
-            print '--------'
-            print npTime2[resultnpTime2]
             
+            '''
             goThrough = False
             if npTime1[resultnpTime1].size == npTime2[resultnpTime2].size:
                 goThrough = True
+            '''
             
-            if endX-startX > durationthreshold and goThrough:
+            if endX-startX > durationthreshold:
                 startXY.append([startX,startY]) #column 0 is the time and column 1 is the "x" distance
                 endXY.append([endX,endY])
                 durations.append(endX-startX)
@@ -371,6 +377,13 @@ def graphX(startX,startY,endX,endY,startX1,startY1,endX1,endY1,time,x,middleX):
         df['Distance Away'] = x
         graph = df.rolling(window=1000,center=False).mean()
         graph.plot(style='bs-')
+        
+    print len(time)
+    print len(x)
+    df = pd.DataFrame(columns=['a'])
+    df['a']=time
+    df['b']=x
+    df.to_csv('test.csv')
     
     plt.plot(time,x)
     plt.plot(time,middleXList, 'r') #Graphs center line according to middleX which can be average or median
@@ -464,9 +477,38 @@ def movingAverage(timeValues,xValues):
     graph = df.rolling(window=1000,center=False).mean()
     graph.plot(style='r')
     
+def inter(xValues):
+    pre = np.array(xValues)
     
+    pre[pre==-1] = numpy.nan
+
+    nans, x= nan_helper(pre)
+    pre[nans]= np.interp(x(nans), x(~nans), pre[~nans])
+    
+    return pre
+
+def nan_helper(y):
+    """Helper to handle indices and logical indices of NaNs.
+
+    Input:
+        - y, 1d numpy array with possible NaNs
+    Output:
+        - nans, logical indices of NaNs
+        - index, a function, with signature indices= index(logical_indices),
+          to convert logical indices of NaNs to 'equivalent' indices
+    Example:
+        >>> # linear interpolation of NaNs
+        >>> nans, x= nan_helper(y)
+        >>> y[nans]= np.interp(x(nans), x(~nans), y[~nans])
+    """
+
+    return np.isnan(y), lambda z: z.nonzero()[0]
+    
+
 #ase()
 #main()
 #data_listener()
 #practice()
+
 matCalc()
+#inter()
