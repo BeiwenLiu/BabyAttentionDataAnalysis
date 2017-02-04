@@ -41,6 +41,8 @@ def matCalc():
     whichOne = raw_input("Would you like to analyze just one mat file (1) or all mat files? (2)?\n")
     threshold = raw_input("State your offset from average (usually .2)\n")
     durationthreshold = raw_input("State your duration threshold (0 for now)\n")
+    lookdatapoints = raw_input("Minimum number of data points threshold (1 or 2 for now)\n")
+    lookdatapoints = int(lookdatapoints)
     if durationthreshold == "":
         durationthreshold = 0
     else:
@@ -51,12 +53,12 @@ def matCalc():
             previousNumber = visitedNumber
             visitedNumber = filename[-6]
             if filename.endswith(".mat") and (visitedNumber != previousNumber) and (visitedNumber == "2" or visitedNumber == "3" or visitedNumber == "4"):
-                main(directory,filename,threshold,durationthreshold,whichOne)
+                main(directory,filename,threshold,durationthreshold,whichOne, lookdatapoints)
                 
         createCSV()
     elif (whichOne) == "1":
         tempFile = raw_input("Please type your desired mat file name\n")
-        main(directory,tempFile,threshold,durationthreshold,whichOne)
+        main(directory,tempFile,threshold,durationthreshold,whichOne, lookdatapoints)
     
 def createCSV():
     df = pd.DataFrame()
@@ -70,7 +72,7 @@ def createCSV():
     df['Occurrences'] = c8 #Number of start-stop occurrences of look aways
     df.to_csv("allParticipants.csv")
     
-def main(directory,filename, threshold,durationthreshold,signal):
+def main(directory,filename, threshold,durationthreshold,signal, lookdatapoints):
     if (signal == "1"):
         selectGraph = raw_input("Please select an option:\n(1) Time Series Only\n(2) Graph and Time Series\n(3) Histogram of Distances\n(4) Histogram of Look Durations\n")
     
@@ -142,13 +144,17 @@ def main(directory,filename, threshold,durationthreshold,signal):
             newTimeValues.append(timeValues[i])
             newxValues.append(xValues[i])
             
+    
+        
+    xStart,yStart,xEnd,yEnd,averageDistance,durations,counter1 = calculations(medianX,threshold,newxValues,newTimeValues,durationthreshold,originalTimeValues, lookdatapoints) #Finds start-end for +x
+    xStart1,yStart1,xEnd1,yEnd1,averageDistance1,durations2,counter2 = calculations2(medianX,threshold,newxValues,newTimeValues,durationthreshold, lookdatapoints) #Finds start-end for -x
+    
+    
     if (selectGraph == "1"):
         windowSize = raw_input("Please Indicate the Window Size\n\n")
-        findMovingAverage(int(windowSize),xValues,timeValues)
+        findMovingAverage(int(windowSize),xValues,timeValues, medianX, xStart, xStart1)
         #movingAverage(timeValues,xValues) #Moving average graph
         
-    xStart,yStart,xEnd,yEnd,averageDistance,durations,counter1 = calculations(medianX,threshold,newxValues,newTimeValues,durationthreshold,originalTimeValues) #Finds start-end for +x
-    xStart1,yStart1,xEnd1,yEnd1,averageDistance1,durations2,counter2 = calculations2(medianX,threshold,newxValues,newTimeValues,durationthreshold) #Finds start-end for -x
     if (selectGraph == "2"):
         graphX(xStart,yStart,xEnd,yEnd,xStart1,yStart1,xEnd1,yEnd1,timeValues,xValues, medianX) #plots everything
     
@@ -209,7 +215,7 @@ def saveToExcel(median,mean,startTime,endTime,averageXDistance,dataDistractionPe
     wb.save(new_file)
 
 #This method will find the start and end points
-def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeValues1):
+def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeValues1, lookdatapoints):
     threshold = float(threshold)
     
     found = False
@@ -234,7 +240,7 @@ def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeVal
     durations = []
     
     npTime1 = np.array(timeValues)
-    npTime2 = np.array(timeValues1)
+    npTime2 = np.array(timeValues1) #Original time values with -1
     
     for x in range(2,len(xValues)):
         currentY = xValues[x] # X Distance Value
@@ -260,12 +266,13 @@ def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeVal
             
             
             '''
+            Checks if there is a -1
             goThrough = False
             if npTime1[resultnpTime1].size == npTime2[resultnpTime2].size:
                 goThrough = True
             '''
             
-            if endX-startX > durationthreshold:
+            if endX-startX > durationthreshold and npTime1[resultnpTime1].size >= lookdatapoints:
                 startXY.append([startX,startY]) #column 0 is the time and column 1 is the "x" distance
                 endXY.append([endX,endY])
                 durations.append(endX-startX)
@@ -279,7 +286,7 @@ def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeVal
 
     return [row[0] for row in startXY], [row[1] for row in startXY], [row[0] for row in endXY], [row[1] for row in endXY], averageDistance, durations,counter
         
-def calculations2(averageX,threshold,xValues,timeValues,durationthreshold):
+def calculations2(averageX,threshold,xValues,timeValues,durationthreshold, lookdatapoints):
     threshold = float(threshold)
     
     found = False
@@ -303,6 +310,8 @@ def calculations2(averageX,threshold,xValues,timeValues,durationthreshold):
     durations = []
     counter = 0
     
+    npTime1 = np.array(timeValues)
+    
     for x in range(2,len(xValues)):
         currentY = xValues[x] # X Distance Value
         currentX = timeValues[x]
@@ -319,7 +328,15 @@ def calculations2(averageX,threshold,xValues,timeValues,durationthreshold):
             endX = slopeX(currentY,previousY,currentX,previousX,averageX - threshold)
             endY = averageX - threshold
             found = False
-            if endX-startX > durationthreshold:
+            
+            
+            constraint = (npTime1 > startX) * (npTime1 < endX)
+            resultnpTime1 = np.where(constraint)
+            
+            
+            
+            
+            if endX-startX > durationthreshold and npTime1[resultnpTime1].size >= lookdatapoints:
                 startXY.append([startX,startY]) #column 0 is the time and column 1 is the "x" distance
                 endXY.append([endX,endY])
                 durations.append(endX-startX)
@@ -381,7 +398,7 @@ def graphX(startX,startY,endX,endY,startX1,startY1,endX1,endY1,time,x,middleX):
         graph = df.rolling(window=1000,center=False).mean()
         graph.plot(style='bs-')'''
         windowSize = raw_input("Please Indicate the Window Size\n\n")
-        findMovingAverage(int(windowSize),x,time,middleX)
+        findMovingAverage(int(windowSize),x,time,middleX, startX, startX1)
         
     print len(time)
     print len(x)
@@ -509,14 +526,35 @@ def nan_helper(y):
 
     return np.isnan(y), lambda z: z.nonzero()[0]
     
-def findMovingAverage(windowSize,xValues,timeValues,median):
+def findMovingAverage(windowSize,xValues,timeValues,median,xStart, xStart1):
     newXVals = []
-    xValues = [abs(median - k) + median for k in xValues]
-    for x in range(0,len(xValues) - windowSize):
-        newXVals.append(sum(xValues[x:x+windowSize])/windowSize)
-    df = pd.DataFrame(index=timeValues[:-windowSize],columns=['Distance Away'])
-    df['Distance Away'] = newXVals
-    df.plot(style='r')
+    distanceOrInstance = raw_input("1) Distance\n2) Instance\n")
+    if distanceOrInstance == "1":
+        xValues = [abs(median - k) + median for k in xValues] #Median minus distance, absolute value, add median for offset
+        for x in range(0,len(xValues) - windowSize):
+            newXVals.append(sum(xValues[x:x+windowSize])/windowSize) 
+        df = pd.DataFrame(index=timeValues[:-windowSize],columns=['Distance Away'])
+        df['Distance Away'] = newXVals
+        df.plot(style='r')
+    elif distanceOrInstance == "2":
+        counter = 0
+        index = 0
+        index1 = 0
+        for x in range(0,len(timeValues) - windowSize):
+            counter = 0
+            start = timeValues[x]
+            end = timeValues[x+windowSize - 1]
+            while index < len(xStart) and xStart[index] >= start and xStart[index] <= end: #If there is an instance of a look away, the time value associated with that should exist
+                counter = counter + 1
+                index = index + 1
+            while index1 < len(xStart1) and xStart1[index1] >= start and xStart1[index1] <= end:
+                counter = counter + 1
+                index1 = index1 + 1
+                
+            newXVals.append(counter)
+        df = pd.DataFrame(index=timeValues[:-windowSize],columns=['Distance Away'])
+        df['Distance Away'] = newXVals
+        df.plot(style='r')
     
         
 #ase()
