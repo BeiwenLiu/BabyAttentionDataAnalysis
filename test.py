@@ -42,6 +42,8 @@ def matCalc():
     threshold = raw_input("State your offset from average (usually .2)\n")
     durationthreshold = raw_input("State your duration threshold (0 for now)\n")
     lookdatapoints = raw_input("Minimum number of data points threshold (1 or 2 for now)\n")
+    percentThreshold = raw_input("Give a percent threshold for how much of data can be missing (0-100)%\n")
+    percentThreshold = int(percentThreshold)
     lookdatapoints = int(lookdatapoints)
     if durationthreshold == "":
         durationthreshold = 0
@@ -53,12 +55,12 @@ def matCalc():
             previousNumber = visitedNumber
             visitedNumber = filename[-6]
             if filename.endswith(".mat") and (visitedNumber != previousNumber) and (visitedNumber == "2" or visitedNumber == "3" or visitedNumber == "4"):
-                main(directory,filename,threshold,durationthreshold,whichOne, lookdatapoints)
+                main(directory,filename,threshold,durationthreshold,whichOne, lookdatapoints, percentThreshold)
                 
         createCSV()
     elif (whichOne) == "1":
         tempFile = raw_input("Please type your desired mat file name\n")
-        main(directory,tempFile,threshold,durationthreshold,whichOne, lookdatapoints)
+        main(directory,tempFile,threshold,durationthreshold,whichOne, lookdatapoints, percentThreshold)
     
 def createCSV():
     df = pd.DataFrame()
@@ -72,7 +74,7 @@ def createCSV():
     df['Occurrences'] = c8 #Number of start-stop occurrences of look aways
     df.to_csv("allParticipants.csv")
     
-def main(directory,filename, threshold,durationthreshold,signal, lookdatapoints):
+def main(directory,filename, threshold,durationthreshold,signal, lookdatapoints, percentThreshold):
     if (signal == "1"):
         selectGraph = raw_input("Please select an option:\n(1) Time Series Only\n(2) Graph and Time Series\n(3) Histogram of Distances\n(4) Histogram of Look Durations\n")
     
@@ -146,8 +148,8 @@ def main(directory,filename, threshold,durationthreshold,signal, lookdatapoints)
             
     
         
-    xStart,yStart,xEnd,yEnd,averageDistance,durations,counter1 = calculations(medianX,threshold,newxValues,newTimeValues,durationthreshold,originalTimeValues, lookdatapoints) #Finds start-end for +x
-    xStart1,yStart1,xEnd1,yEnd1,averageDistance1,durations2,counter2 = calculations2(medianX,threshold,newxValues,newTimeValues,durationthreshold, lookdatapoints) #Finds start-end for -x
+    xStart,yStart,xEnd,yEnd,averageDistance,durations,counter1 = calculations(medianX,threshold,newxValues,newTimeValues,durationthreshold,originalTimeValues, lookdatapoints, percentThreshold) #Finds start-end for +x
+    xStart1,yStart1,xEnd1,yEnd1,averageDistance1,durations2,counter2 = calculations2(medianX,threshold,newxValues,newTimeValues,durationthreshold,originalTimeValues, lookdatapoints, percentThreshold) #Finds start-end for -x
     
     
     if (selectGraph == "1"):
@@ -215,7 +217,7 @@ def saveToExcel(median,mean,startTime,endTime,averageXDistance,dataDistractionPe
     wb.save(new_file)
 
 #This method will find the start and end points
-def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeValues1, lookdatapoints):
+def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeValues1, lookdatapoints, percentThreshold):
     threshold = float(threshold)
     
     found = False
@@ -241,6 +243,9 @@ def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeVal
     
     npTime1 = np.array(timeValues)
     npTime2 = np.array(timeValues1) #Original time values with -1
+
+    print "Np times"
+    print npTime1,npTime2
     
     for x in range(2,len(xValues)):
         currentY = xValues[x] # X Distance Value
@@ -271,8 +276,13 @@ def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeVal
             if npTime1[resultnpTime1].size == npTime2[resultnpTime2].size:
                 goThrough = True
             '''
+
+            percentMissing = 100 - int(float(npTime1[resultnpTime1].size)/float(npTime2[resultnpTime2].size)*100)
+            print percentMissing <= percentThreshold
+            print percentMissing, percentThreshold
             
-            if endX-startX > durationthreshold and npTime1[resultnpTime1].size >= lookdatapoints:
+            if endX-startX > durationthreshold and npTime1[resultnpTime1].size >= lookdatapoints and percentMissing <= percentThreshold:
+                print "hey"
                 startXY.append([startX,startY]) #column 0 is the time and column 1 is the "x" distance
                 endXY.append([endX,endY])
                 durations.append(endX-startX)
@@ -286,7 +296,7 @@ def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeVal
 
     return [row[0] for row in startXY], [row[1] for row in startXY], [row[0] for row in endXY], [row[1] for row in endXY], averageDistance, durations,counter
         
-def calculations2(averageX,threshold,xValues,timeValues,durationthreshold, lookdatapoints):
+def calculations2(averageX,threshold,xValues,timeValues,durationthreshold,timeValues1, lookdatapoints,percentThreshold):
     threshold = float(threshold)
     
     found = False
@@ -311,7 +321,7 @@ def calculations2(averageX,threshold,xValues,timeValues,durationthreshold, lookd
     counter = 0
     
     npTime1 = np.array(timeValues)
-    
+    npTime2 = np.array(timeValues1) #Original time values with -1    
     for x in range(2,len(xValues)):
         currentY = xValues[x] # X Distance Value
         currentX = timeValues[x]
@@ -331,12 +341,14 @@ def calculations2(averageX,threshold,xValues,timeValues,durationthreshold, lookd
             
             
             constraint = (npTime1 > startX) * (npTime1 < endX)
+            constraint2 = (npTime2 > startX) * (npTime2 < endX)
             resultnpTime1 = np.where(constraint)
+            resultnpTime2 = np.where(constraint2)
+            
+            percentMissing = 100 - int(float(npTime1[resultnpTime1].size)/float(npTime2[resultnpTime2].size)*100)
             
             
-            
-            
-            if endX-startX > durationthreshold and npTime1[resultnpTime1].size >= lookdatapoints:
+            if endX-startX > durationthreshold and npTime1[resultnpTime1].size >= lookdatapoints and percentMissing <= percentThreshold:
                 startXY.append([startX,startY]) #column 0 is the time and column 1 is the "x" distance
                 endXY.append([endX,endY])
                 durations.append(endX-startX)
