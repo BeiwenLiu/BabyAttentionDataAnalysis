@@ -398,7 +398,7 @@ def graphX(startX,startY,endX,endY,startX1,startY1,endX1,endY1,time,x,middleX):
         graph = df.rolling(window=1000,center=False).mean()
         graph.plot(style='bs-')'''
         windowSize = raw_input("Please Indicate the Window Size\n\n")
-        findMovingAverage(int(windowSize),x,time,middleX, startX, startX1)
+        findMovingAverage(int(windowSize),x,time,middleX, startX, startX1,endX,endX1)
         
     print len(time)
     print len(x)
@@ -526,9 +526,9 @@ def nan_helper(y):
 
     return np.isnan(y), lambda z: z.nonzero()[0]
     
-def findMovingAverage(windowSize,xValues,timeValues,median,xStart, xStart1):
+def findMovingAverage(windowSize,xValues,timeValues,median,xStart, xStart1, xEnd, xEnd1):
     newXVals = []
-    distanceOrInstance = raw_input("1) Distance\n2) Instance\n")
+    distanceOrInstance = raw_input("1) Distance\n2) Instance\n3) Look Distance")
     if distanceOrInstance == "1":
         xValues = [abs(median - k) + median for k in xValues] #Median minus distance, absolute value, add median for offset
         for x in range(0,len(xValues) - windowSize):
@@ -537,24 +537,41 @@ def findMovingAverage(windowSize,xValues,timeValues,median,xStart, xStart1):
         df['Distance Away'] = newXVals
         df.plot(style='r')
     elif distanceOrInstance == "2":
-        counter = 0
-        index = 0
-        index1 = 0
-        for x in range(0,len(timeValues) - windowSize):
+        print xStart[-1], xEnd[-1]
+        xValues = [abs(median - k) + median for k in xValues] #Median minus distance, absolute value, add median for offset
+        newXVals= []
+        
+        for x in range(windowSize / 2,len(xValues) - (windowSize / 2)):
+            #newXVals.append(sum(xValues[x - windowSize/2 : x+windowSize/2])/windowSize)
             counter = 0
-            start = timeValues[x]
-            end = timeValues[x+windowSize - 1]
-            while index < len(xStart) and xStart[index] >= start and xStart[index] <= end: #If there is an instance of a look away, the time value associated with that should exist
-                counter = counter + 1
-                index = index + 1
-            while index1 < len(xStart1) and xStart1[index1] >= start and xStart1[index1] <= end:
-                counter = counter + 1
-                index1 = index1 + 1
-                
-            newXVals.append(counter)
-        df = pd.DataFrame(index=timeValues[:-windowSize],columns=['Distance Away'])
+            counter2 = 0
+            total = 0
+            numberOccurrence = 0
+            for y in range(x - windowSize/2,x + windowSize/2):
+                if counter < len(xEnd) and timeValues[y] > xStart[counter] and timeValues[y] < xEnd[counter]:
+                    total = total + xValues[y]
+                    numberOccurrence = numberOccurrence + 1
+                else:
+                    while counter < len(xEnd) and timeValues[y] > xEnd[counter]:
+                        counter = counter + 1
+                if counter2 < len(xEnd1) and timeValues[y] > xStart1[counter2] and timeValues[y] < xEnd1[counter2]:
+                    total = total + xValues[y]
+                    numberOccurrence = numberOccurrence + 1
+                else:
+                    while counter2 < len(xEnd1) and timeValues[y] > xEnd1[counter2]:
+                        counter2 = counter2 + 1
+            if numberOccurrence != 0:
+                newXVals.append(total / numberOccurrence)
+                print total/numberOccurrence
+            else:
+                newXVals.append(median)
+                print median
+
+
+        df = pd.DataFrame(index=timeValues[windowSize/2:-windowSize/2],columns=['Distance Away'])
         df['Distance Away'] = newXVals
         df.plot(style='r')
+        
     
         
 #ase()
