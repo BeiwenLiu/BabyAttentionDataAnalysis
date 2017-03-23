@@ -107,18 +107,17 @@ def main(directory,filename, threshold,durationthreshold,signal, lookdatapoints,
         nXValues = np.ma.masked_array(xValues, sa.mask)
         nTimeValues = np.ma.masked_array(timeValues, sa.mask)
         
-        print nTimeValues,"nTime"
         
         xValues = np.ma.compressed(nXValues).tolist()[1:]
         timeValues = np.ma.compressed(nTimeValues).tolist()[1:]
     elif interpolateOrNo == "2":
-        pre = inter(xValues)
-        
+        pre, previous1 = inter(xValues)
+                
         xValues = np.ma.compressed(pre).tolist()[1:]
+
         timeValues = np.ma.compressed(timeValues).tolist()[1:]
     
     initialValue = timeValues[0]
-    print initialValue, "s"
 
     timeValues[:] = [x1 - initialValue for x1 in timeValues]
     
@@ -141,15 +140,22 @@ def main(directory,filename, threshold,durationthreshold,signal, lookdatapoints,
    
     newTimeValues = []
     newxValues = []
+    newxValuesNegativeOnes = []
+
+    #Prune the data because there are multiple x values for each time value
     for i in range(0,len(timeValues)):
         if timeValues[i] not in newTimeValues:
             newTimeValues.append(timeValues[i])
             newxValues.append(xValues[i])
-            
+            newxValuesNegativeOnes.append(previous1[i])
+
+
+    np.savetxt('output.txt', newxValues, delimiter=',')
+    np.savetxt('output1.txt', newxValuesNegativeOnes, delimiter=',')
     
         
-    xStart,yStart,xEnd,yEnd,averageDistance,durations,counter1 = calculations(medianX,threshold,newxValues,newTimeValues,durationthreshold,originalTimeValues, lookdatapoints, percentThreshold) #Finds start-end for +x
-    xStart1,yStart1,xEnd1,yEnd1,averageDistance1,durations2,counter2 = calculations2(medianX,threshold,newxValues,newTimeValues,durationthreshold,originalTimeValues, lookdatapoints, percentThreshold) #Finds start-end for -x
+    xStart,yStart,xEnd,yEnd,averageDistance,durations,counter1 = calculations(medianX,threshold,newxValues,newTimeValues,durationthreshold,originalTimeValues, lookdatapoints, percentThreshold, newxValuesNegativeOnes) #Finds start-end for +x
+    xStart1,yStart1,xEnd1,yEnd1,averageDistance1,durations2,counter2 = calculations2(medianX,threshold,newxValues,newTimeValues,durationthreshold,originalTimeValues, lookdatapoints, percentThreshold, newxValuesNegativeOnes) #Finds start-end for -x
     
     
     if (selectGraph == "1"):
@@ -217,7 +223,7 @@ def saveToExcel(median,mean,startTime,endTime,averageXDistance,dataDistractionPe
     wb.save(new_file)
 
 #This method will find the start and end points
-def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeValues1, lookdatapoints, percentThreshold):
+def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeValues1, lookdatapoints, percentThreshold, previous1):
     threshold = float(threshold)
     
     found = False
@@ -243,22 +249,36 @@ def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeVal
     
     npTime1 = np.array(timeValues)
     npTime2 = np.array(timeValues1) #Original time values with -1
-
-    print "Np times"
-    print npTime1,npTime2
     
     for x in range(2,len(xValues)):
         currentY = xValues[x] # X Distance Value
+        currentP = previous1[x]
+
         currentX = timeValues[x]
         if ~found and (previousY < threshold + averageX and currentY > threshold + averageX):
             startX = slopeX(currentY,previousY,currentX,previousX,threshold + averageX)
             startY = averageX + threshold
             found = True
+            numberOfNegativeOnes = 0
+            numberOfPositiveNumbers = 0
+            total = 0
+            array100 = []
             
         if found:
+            total += 1
+            if currentP == -1:
+                numberOfNegativeOnes += 1
+            else:
+                numberOfPositiveNumbers += 1
+            array100.append(currentP)
+                
             tempDistance.append(currentY)
         
         if found and (previousY > threshold + averageX and currentY < threshold + averageX):
+            onehundred = int(100*float(numberOfNegativeOnes)/float(total))
+            print "neg ", numberOfNegativeOnes, " total ", total, "percent", int(100*float(numberOfNegativeOnes)/float(total))
+            if onehundred == 100:
+                print array100
             
             endX = slopeX(currentY,previousY,currentX,previousX,threshold + averageX)
             endY = averageX + threshold
@@ -277,12 +297,10 @@ def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeVal
                 goThrough = True
             '''
 
-            percentMissing = 100 - int(float(npTime1[resultnpTime1].size)/float(npTime2[resultnpTime2].size)*100)
-            print percentMissing <= percentThreshold
-            print percentMissing, percentThreshold
+            #percentMissing = 100 - int(float(npTime1[resultnpTime1].size)/float(npTime2[resultnpTime2].size)*100)
             
-            if endX-startX > durationthreshold and npTime1[resultnpTime1].size >= lookdatapoints and percentMissing <= percentThreshold:
-                print "hey"
+            if endX-startX > durationthreshold and npTime1[resultnpTime1].size >= lookdatapoints and onehundred != 100:
+                print onehundred
                 startXY.append([startX,startY]) #column 0 is the time and column 1 is the "x" distance
                 endXY.append([endX,endY])
                 durations.append(endX-startX)
@@ -296,7 +314,7 @@ def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeVal
 
     return [row[0] for row in startXY], [row[1] for row in startXY], [row[0] for row in endXY], [row[1] for row in endXY], averageDistance, durations,counter
         
-def calculations2(averageX,threshold,xValues,timeValues,durationthreshold,timeValues1, lookdatapoints,percentThreshold):
+def calculations2(averageX,threshold,xValues,timeValues,durationthreshold,timeValues1, lookdatapoints,percentThreshold, previous1):
     threshold = float(threshold)
     
     found = False
@@ -324,17 +342,32 @@ def calculations2(averageX,threshold,xValues,timeValues,durationthreshold,timeVa
     npTime2 = np.array(timeValues1) #Original time values with -1    
     for x in range(2,len(xValues)):
         currentY = xValues[x] # X Distance Value
+        currentP = previous1[x]
         currentX = timeValues[x]
         if ~found and (previousY > averageX - threshold and currentY < averageX - threshold):
             startX = slopeX(currentY,previousY,currentX,previousX,averageX - threshold)
             startY = averageX - threshold
             found = True
+            numberOfNegativeOnes = 0
+            numberOfPositiveNumbers = 0
+            total = 0
+            array100 = []
             
         if found:
+            total += 1
+            if currentP == -1:
+                numberOfNegativeOnes += 1
+            else:
+                numberOfPositiveNumbers += 1
+            array100.append(currentP)
             tempDistance.append(currentY)
         
         if found and (previousY < averageX - threshold and currentY > averageX - threshold):
-            
+            onehundred = int(100*float(numberOfNegativeOnes)/float(total))
+            print "neg ", numberOfNegativeOnes, " total ", total, "percent", int(100*float(numberOfNegativeOnes)/float(total))
+            if onehundred == 100:
+                print array100
+
             endX = slopeX(currentY,previousY,currentX,previousX,averageX - threshold)
             endY = averageX - threshold
             found = False
@@ -345,10 +378,11 @@ def calculations2(averageX,threshold,xValues,timeValues,durationthreshold,timeVa
             resultnpTime1 = np.where(constraint)
             resultnpTime2 = np.where(constraint2)
             
-            percentMissing = 100 - int(float(npTime1[resultnpTime1].size)/float(npTime2[resultnpTime2].size)*100)
+            #percentMissing = 100 - int(float(npTime1[resultnpTime1].size)/float(npTime2[resultnpTime2].size)*100)
             
-            
-            if endX-startX > durationthreshold and npTime1[resultnpTime1].size >= lookdatapoints and percentMissing <= percentThreshold:
+
+            #Add look
+            if endX-startX > durationthreshold and npTime1[resultnpTime1].size >= lookdatapoints and onehundred != 100:
                 startXY.append([startX,startY]) #column 0 is the time and column 1 is the "x" distance
                 endXY.append([endX,endY])
                 durations.append(endX-startX)
@@ -513,13 +547,15 @@ def movingAverage(timeValues,xValues):
     
 def inter(xValues):
     pre = np.array(xValues)
+    withNegativeOne = np.copy(pre)
+    
     
     pre[pre==-1] = numpy.nan
 
     nans, x= nan_helper(pre)
     pre[nans]= np.interp(x(nans), x(~nans), pre[~nans])
     
-    return pre
+    return pre, withNegativeOne
 
 def nan_helper(y):
     """Helper to handle indices and logical indices of NaNs.
@@ -573,7 +609,7 @@ def findMovingAverage(windowSize,xValues,timeValues,median,xStart, xStart1, xEnd
                     while counter2 < len(xEnd1) and timeValues[y] > xEnd1[counter2]:
                         counter2 = counter2 + 1
             if numberOccurrence != 0:
-                newXVals.append(total / numberOccurrence)
+                newXVals.append(total / windowSize)
                 print total/numberOccurrence
             else:
                 newXVals.append(median)
