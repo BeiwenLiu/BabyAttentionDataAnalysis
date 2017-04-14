@@ -276,7 +276,7 @@ def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeVal
         
         if found and (previousY > threshold + averageX and currentY < threshold + averageX):
             onehundred = int(100*float(numberOfNegativeOnes)/float(total))
-            print "neg ", numberOfNegativeOnes, " total ", total, "percent", int(100*float(numberOfNegativeOnes)/float(total))
+
             if onehundred == 100:
                 print array100
             
@@ -296,10 +296,8 @@ def calculations(averageX,threshold,xValues,timeValues,durationthreshold,timeVal
             if npTime1[resultnpTime1].size == npTime2[resultnpTime2].size:
                 goThrough = True
             '''
-
-            #percentMissing = 100 - int(float(npTime1[resultnpTime1].size)/float(npTime2[resultnpTime2].size)*100)
             
-            if endX-startX > durationthreshold and npTime1[resultnpTime1].size >= lookdatapoints and onehundred != 100:
+            if endX-startX > durationthreshold and npTime1[resultnpTime1].size >= lookdatapoints and onehundred < percentThreshold:
                 print onehundred
                 startXY.append([startX,startY]) #column 0 is the time and column 1 is the "x" distance
                 endXY.append([endX,endY])
@@ -364,7 +362,7 @@ def calculations2(averageX,threshold,xValues,timeValues,durationthreshold,timeVa
         
         if found and (previousY < averageX - threshold and currentY > averageX - threshold):
             onehundred = int(100*float(numberOfNegativeOnes)/float(total))
-            print "neg ", numberOfNegativeOnes, " total ", total, "percent", int(100*float(numberOfNegativeOnes)/float(total))
+            
             if onehundred == 100:
                 print array100
 
@@ -377,12 +375,10 @@ def calculations2(averageX,threshold,xValues,timeValues,durationthreshold,timeVa
             constraint2 = (npTime2 > startX) * (npTime2 < endX)
             resultnpTime1 = np.where(constraint)
             resultnpTime2 = np.where(constraint2)
-            
-            #percentMissing = 100 - int(float(npTime1[resultnpTime1].size)/float(npTime2[resultnpTime2].size)*100)
-            
+                        
 
             #Add look
-            if endX-startX > durationthreshold and npTime1[resultnpTime1].size >= lookdatapoints and onehundred != 100:
+            if endX-startX > durationthreshold and npTime1[resultnpTime1].size >= lookdatapoints and onehundred < percentThreshold:
                 startXY.append([startX,startY]) #column 0 is the time and column 1 is the "x" distance
                 endXY.append([endX,endY])
                 durations.append(endX-startX)
