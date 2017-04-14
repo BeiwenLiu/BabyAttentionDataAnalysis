@@ -19,6 +19,7 @@ import openpyxl
 import os.path
 from django.utils.encoding import smart_str
 from openpyxl.styles import colors
+from pylab import figure, axes, pie, title, show
 from openpyxl.styles import Font, Color
 
 data = []
@@ -39,7 +40,10 @@ def matCalc():
     previousNumber = -1
     directory = "mat/"
     whichOne = raw_input("Would you like to analyze just one mat file (1) or all mat files? (2)?\n")
-    threshold = raw_input("State your offset from average (usually .2)\n")
+    if whichOne == "1":
+        threshold = raw_input("State your offset from average (usually .2)\n")
+    else:
+        threshold = ".2"
     durationthreshold = raw_input("State your duration threshold (0 for now)\n")
     lookdatapoints = raw_input("Minimum number of data points threshold (1 or 2 for now)\n")
     percentThreshold = raw_input("Give a percent threshold for how much of data can be missing (0-100)%\n")
@@ -96,23 +100,30 @@ def main(directory,filename, threshold,durationthreshold,signal, lookdatapoints,
     originalTimeValues[:] = [z - tempInit for z in originalTimeValues]
     #graphXY(xValues,yValues)
        
-    
-    interpolateOrNo = raw_input("1) Drop -1\n2) Interpolate\n")
-    #Drop all -1 values within X Values 
-    if interpolateOrNo == "1":
-        
-        pre = np.array(xValues)
-        sa = np.ma.masked_where(pre == -1, pre)
-        
-        nXValues = np.ma.masked_array(xValues, sa.mask)
-        nTimeValues = np.ma.masked_array(timeValues, sa.mask)
-        
-        
-        xValues = np.ma.compressed(nXValues).tolist()[1:]
-        timeValues = np.ma.compressed(nTimeValues).tolist()[1:]
-    elif interpolateOrNo == "2":
+    if signal == "1":
+        interpolateOrNo = raw_input("1) Drop -1\n2) Interpolate\n")
+        #Drop all -1 values within X Values 
+        if interpolateOrNo == "1":
+            
+            pre = np.array(xValues)
+            sa = np.ma.masked_where(pre == -1, pre)
+            
+            nXValues = np.ma.masked_array(xValues, sa.mask)
+            nTimeValues = np.ma.masked_array(timeValues, sa.mask)
+            
+            
+            xValues = np.ma.compressed(nXValues).tolist()[1:]
+            timeValues = np.ma.compressed(nTimeValues).tolist()[1:]
+        elif interpolateOrNo == "2":
+            pre, previous1 = inter(xValues)
+                    
+            xValues = np.ma.compressed(pre).tolist()[1:]
+
+            timeValues = np.ma.compressed(timeValues).tolist()[1:]
+    else:
+        #If all files analyzed, by default will interpolate
         pre, previous1 = inter(xValues)
-                
+                    
         xValues = np.ma.compressed(pre).tolist()[1:]
 
         timeValues = np.ma.compressed(timeValues).tolist()[1:]
@@ -123,7 +134,8 @@ def main(directory,filename, threshold,durationthreshold,signal, lookdatapoints,
     
     averageX = sum(xValues)/len(xValues)
     medianX = median(xValues)
-    
+
+    threshold = numpy.std(xValues)
     
         
     #.066 conservative
@@ -134,6 +146,7 @@ def main(directory,filename, threshold,durationthreshold,signal, lookdatapoints,
     
     print "Average X", averageX
     print "Median", medianX
+    print "Standard Deviation", numpy.std(xValues)
     print totalTime
     print "distraction: " + str(round(distractedTime/totalTime*100,2)) + "%"
     
@@ -157,21 +170,24 @@ def main(directory,filename, threshold,durationthreshold,signal, lookdatapoints,
     xStart,yStart,xEnd,yEnd,averageDistance,durations,counter1 = calculations(medianX,threshold,newxValues,newTimeValues,durationthreshold,originalTimeValues, lookdatapoints, percentThreshold, newxValuesNegativeOnes) #Finds start-end for +x
     xStart1,yStart1,xEnd1,yEnd1,averageDistance1,durations2,counter2 = calculations2(medianX,threshold,newxValues,newTimeValues,durationthreshold,originalTimeValues, lookdatapoints, percentThreshold, newxValuesNegativeOnes) #Finds start-end for -x
     
-    
-    if (selectGraph == "1"):
-        windowSize = raw_input("Please Indicate the Window Size\n\n")
-        findMovingAverage(int(windowSize),xValues,timeValues, medianX, xStart, xStart1)
-        #movingAverage(timeValues,xValues) #Moving average graph
+
+    if signal == "1":
+        if (selectGraph == "1"):
+            windowSize = raw_input("Please Indicate the Window Size\n\n")
+            findMovingAverage(int(windowSize),xValues,timeValues, medianX, xStart, xStart1)
+            #movingAverage(timeValues,xValues) #Moving average graph
+            
+        if (selectGraph == "2"):
+            graphX(signal,filename,xStart,yStart,xEnd,yEnd,xStart1,yStart1,xEnd1,yEnd1,timeValues,xValues, medianX) #plots everything
         
-    if (selectGraph == "2"):
-        graphX(xStart,yStart,xEnd,yEnd,xStart1,yStart1,xEnd1,yEnd1,timeValues,xValues, medianX) #plots everything
-    
-    durations.extend(durations2) #combine both durations from top and bottom
-    if (selectGraph == "3"):
-        histogram(xValues) # To enable histogram for distance look away, uncomment here
-    if (selectGraph == "4"):
-        histogramDurations(durations) # To enable histogram for duration of look aways, uncomment here
-    
+        durations.extend(durations2) #combine both durations from top and bottom
+        if (selectGraph == "3"):
+            print "activate histogram"
+            histogram(xValues) # To enable histogram for distance look away, uncomment here
+        if (selectGraph == "4"):
+            histogramDurations(durations) # To enable histogram for duration of look aways, uncomment here
+    else:
+        graphX(signal,filename,xStart,yStart,xEnd,yEnd,xStart1,yStart1,xEnd1,yEnd1,timeValues,xValues, medianX) #plots everything
 
     total = findDuration(xStart,xEnd) #the total duration of look aways
     print round(total/totalTime*100,2)
@@ -424,15 +440,18 @@ def graphXY(x,y):
     axes.set_ylim([-2,3])
     plt.show()
 
-def graphX(startX,startY,endX,endY,startX1,startY1,endX1,endY1,time,x,middleX):
-    whichOne = raw_input("(1) Add Time Series\n(2) Add Looks\n(3) Add both\n(4) None\n")
+def graphX(signal,filename,startX,startY,endX,endY,startX1,startY1,endX1,endY1,time,x,middleX):
+    if signal == "1":
+        whichOne2 = raw_input("(1) Add Time Series\n(2) Add Looks\n(3) Add both\n(4) None\n")
+    else:
+        whichOne2 = "2"
     
     middleXList = []
     for num in range(0,len(time)):
         middleXList.append(middleX)
         
     
-    if (whichOne == "1" or whichOne == "3"):  
+    if (whichOne2 == "1" or whichOne2 == "3"):  
         #following df and graph will plot moving average
         '''
         df = pd.DataFrame(index=time,columns=['Distance Away'])
@@ -442,8 +461,6 @@ def graphX(startX,startY,endX,endY,startX1,startY1,endX1,endY1,time,x,middleX):
         windowSize = raw_input("Please Indicate the Window Size\n\n")
         findMovingAverage(int(windowSize),x,time,middleX, startX, startX1,endX,endX1)
         
-    print len(time)
-    print len(x)
     df = pd.DataFrame(columns=['a'])
     df['a']=time
     df['b']=x
@@ -452,14 +469,19 @@ def graphX(startX,startY,endX,endY,startX1,startY1,endX1,endY1,time,x,middleX):
     plt.plot(time,x)
     plt.plot(time,middleXList, 'r') #Graphs center line according to middleX which can be average or median
     
-    if (whichOne == "2" or whichOne == "3"):
+    if (whichOne2 == "2" or whichOne2 == "3"):
         plt.scatter(startX,startY)
         plt.scatter(startX1,startY1)
         plt.scatter(endX,endY)
         plt.scatter(endX1,endY1)
     #axes.set_xlim([0,1])
     #axes.set_ylim([-2,3])
-    plt.show()
+
+    if signal == "1":
+        plt.show()
+    else:
+        plt.savefig("figures/"+str(filename)+".png")
+    plt.close()
     
 def ase():
     plt.axis([0, 10, 0, 1])
@@ -485,7 +507,7 @@ def practice():
 
 #Histogram for distribution of distances 
 def histogram(sa):
-    
+
     # Get histogram of random data
     bins = []
     x = .1
@@ -493,18 +515,21 @@ def histogram(sa):
         bins.append(x)
         x += .01
         
-    y, x = np.histogram(sa, bins=bins)
+    #y, x = np.histogram(sa, bins=bins)
     
     # Correct bin placement
-    x = x[1:]
+    #x = x[1:]
     
     # Turn into pandas Series
-    hist = pd.Series(y, x)
+    #hist = pd.Series(y, x)
     
     # Plot
-    ax = hist.plot(kind='bar', width=1, alpha=0.5, align='center')
-    ax.set_title('Uniform Bin Distribution of Distance Look Away')
-    ax.set_xlabel('Distance Look Away')
+    #ax = hist.plot(kind='bar', width=1, alpha=0.5, align='center')
+    #ax.set_title('Uniform Bin Distribution of Distance Look Away')
+    #ax.set_xlabel('Distance Look Away')
+    plt.hist(sa,bins=bins)
+    plt.show()
+    plt.close()
     
 #Histogram for distribution of durations 
 def histogramDurations(sa):
